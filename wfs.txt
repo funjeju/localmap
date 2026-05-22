@@ -1,0 +1,9 @@
+https://gis-heritage.go.kr/openapi/xmlService/spca.do?ccbaKdcd=11  국보
+https://gis-heritage.go.kr/openapi/xmlService/spca.do?ccbaKdcd=12  보물
+https://gis-heritage.go.kr/openapi/xmlService/spca.do?ccbaKdcd=13  사적
+https://gis-heritage.go.kr/openapi/xmlService/spca.do?ccbaKdcd=15  명승
+https://gis-heritage.go.kr/openapi/xmlService/spca.do?ccbaKdcd=16  천연기념물
+https://gis-heritage.go.kr/openapi/xmlService/spca.do?ccbaKdcd=17  국가무형유산
+https://gis-heritage.go.kr/openapi/xmlService/spca.do?ccbaKdcd=18  국가 민속문화유산
+https://gis-heritage.go.kr/openapi/xmlService/spca.do?ccbaKdcd=79  등록문화유산
+

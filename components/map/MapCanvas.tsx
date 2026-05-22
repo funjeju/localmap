@@ -6,8 +6,9 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { Protocol } from 'pmtiles';
 import { useMapStore } from '@/stores/mapStore';
 import { subscribeToPins } from '@/lib/firebase/pins';
-import { Pin } from '@/lib/firebase/models';
+import type { Pin } from '@/lib/types';
 import MapExportUI from '@/components/map/MapExportUI';
+import SearchModal from '@/components/map/SearchModal';
 
 interface MapCanvasProps {
   tenantId: string;
@@ -20,6 +21,7 @@ export default function MapCanvas({ tenantId, tenantCenter, tenantRadius, locale
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [pins, setPins] = useState<Pin[]>([]);
   
   const visibleLayerIds = useMapStore((state) => state.visibleLayerIds);
   const studentMode = useMapStore((state) => state.studentMode);
@@ -120,8 +122,9 @@ export default function MapCanvas({ tenantId, tenantCenter, tenantRadius, locale
   // Subscribe to realtime pins
   useEffect(() => {
     if (!tenantId || !mapLoaded) return;
-    
+
     const unsubscribe = subscribeToPins(tenantId, (pins) => {
+      setPins(pins as any);
       if (map.current && map.current.getSource('pins-source')) {
         const source = map.current.getSource('pins-source') as maplibregl.GeoJSONSource;
         const features = pins.map(pin => ({
@@ -136,7 +139,7 @@ export default function MapCanvas({ tenantId, tenantCenter, tenantRadius, locale
             name: pin.name[locale as keyof typeof pin.name] || pin.name.ko || ''
           }
         }));
-        
+
         source.setData({
           type: 'FeatureCollection',
           features
@@ -217,9 +220,24 @@ export default function MapCanvas({ tenantId, tenantCenter, tenantRadius, locale
     }
   }, [draftPinLocation, mapLoaded, setDraftPinLocation]);
 
+  const handleSearchSelectPin = (pinId: string) => {
+    const selectedPin = pins.find(p => p.id === pinId);
+    if (selectedPin) {
+      setSelectedPinId(pinId);
+      if (map.current) {
+        map.current.flyTo({
+          center: [selectedPin.location.lng, selectedPin.location.lat] as [number, number],
+          zoom: 16,
+          duration: 1000
+        });
+      }
+    }
+  };
+
   return (
     <div className="w-full h-full relative">
       <div ref={mapContainer} className="absolute inset-0" />
+      <SearchModal pins={pins} onSelectPin={handleSearchSelectPin} />
       <MapExportUI mapRef={map} />
     </div>
   );
