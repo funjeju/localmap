@@ -1,0 +1,142 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
+import { subscribeToAuthChanges } from '@/lib/firebase/auth';
+import { db } from '@/lib/firebase/config';
+import { doc, getDoc } from 'firebase/firestore';
+import { useMapStore } from '@/stores/mapStore';
+import { getUserMembershipForTenant } from '@/lib/firebase/memberships';
+import ProtectedRoute from '@/components/auth/ProtectedRoute';
+import type { Tenant } from '@/lib/types';
+import MapCanvas from '@/components/map/MapCanvas';
+import PinActionBar from '@/components/map/PinActionBar';
+import LayerFilterPanel from '@/components/map/LayerFilterPanel';
+import PropertyPanel from '@/components/map/PropertyPanel';
+
+function MapContent() {
+  const router = useRouter();
+  const params = useParams();
+  const tenantId = params.tenantId as string;
+  const locale = (params.locale as string) || 'ko';
+
+  const [tenant, setTenant] = useState<Tenant | null>(null);
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const setStudentMode = useMapStore((state) => state.setStudentMode);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToAuthChanges(async (firebaseUser) => {
+      if (!firebaseUser) {
+        router.push(`/${locale}/login`);
+        return;
+      }
+      setUser(firebaseUser);
+
+      // Check user's role for this tenant
+      if (tenantId) {
+        try {
+          const membership = await getUserMembershipForTenant(firebaseUser.uid, tenantId);
+          setStudentMode(membership?.role === 'student');
+        } catch (err) {
+          console.error('Failed to load membership:', err);
+        }
+      }
+    });
+
+    return unsubscribe;
+  }, [router, locale, tenantId, setStudentMode]);
+
+  useEffect(() => {
+    if (!tenantId) return;
+
+    const loadTenant = async () => {
+      try {
+        const tenantRef = doc(db, 'tenants', tenantId);
+        const snapshot = await getDoc(tenantRef);
+
+        if (!snapshot.exists) {
+          throw new Error('Tenant not found');
+        }
+
+        setTenant(snapshot.data() as Tenant);
+      } catch (err) {
+        console.error('Failed to load tenant:', err);
+        router.push(`/${locale}/dashboard`);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadTenant();
+  }, [tenantId, locale, router]);
+
+  if (loading || !tenant) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading map...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-screen w-full">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold">
+            {typeof tenant.name === 'object' ? tenant.name.ko : tenant.name}
+          </h1>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => router.push(`/${locale}/dashboard`)}
+            className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded"
+          >
+            대시보드
+          </button>
+          <button
+            onClick={() => router.push(`/${locale}/tenant/${tenantId}/settings`)}
+            className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded"
+          >
+            설정
+          </button>
+        </div>
+      </div>
+
+      {/* Map Container */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Sidebar: Layer Filter Panel */}
+        <LayerFilterPanel tenantId={tenantId} />
+
+        {/* Main Map Area */}
+        <section className="flex-1 relative">
+          <MapCanvas
+            tenantId={tenantId}
+            tenantCenter={tenant.center}
+            tenantRadius={tenant.radius}
+            locale={locale}
+          />
+
+          {/* Bottom Bar: Action buttons */}
+          <PinActionBar tenantId={tenantId} />
+        </section>
+
+        {/* Right Sidebar: Property Panel */}
+        <PropertyPanel tenantId={tenantId} />
+      </div>
+    </div>
+  );
+}
+
+export default function MapPage() {
+  return (
+    <ProtectedRoute>
+      <MapContent />
+    </ProtectedRoute>
+  );
+}

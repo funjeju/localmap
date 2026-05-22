@@ -1,4 +1,4 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+﻿# See https://help.github.com/articles/ignoring-files/
 
 # dependencies
 /node_modules
@@ -41,11 +41,11 @@ yarn-error.log*
 next-env.d.ts
 
 # 중요: 절대 무시하지 말 것!
-# 아래 파일들은 프로젝트 설계와 리소스이므로 반드시 git에 커밋해야 함
 !CORE.md
 !docs/
 !designsample*.png
 
-# 대용량 파일: git-lfs 사용 필요 (별도 관리)
-# south-korea.pmtiles
-# pmtiles.exe
+# 대용량 파일: GitHub에 올릴 수 없음
+south-korea.pmtiles
+seoul.pmtiles
+pmtiles.exe

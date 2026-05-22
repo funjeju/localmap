@@ -1,0 +1,98 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isTeacher(tenantId) {
+      return isSignedIn() && get(/databases/$(database)/documents/tenants/$(tenantId)/members/$(request.auth.uid)).data.role == 'teacher';
+    }
+
+    function isStudent(tenantId) {
+      return isSignedIn() && get(/databases/$(database)/documents/tenants/$(tenantId)/members/$(request.auth.uid)).data.role == 'student';
+    }
+
+    function isAdmin(tenantId) {
+      return isSignedIn() && get(/databases/$(database)/documents/tenants/$(tenantId)/members/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function isMember(tenantId) {
+      return isSignedIn() && exists(/databases/$(database)/documents/tenants/$(tenantId)/members/$(request.auth.uid));
+    }
+
+    function isTeacherOrAdmin(tenantId) {
+      return isTeacher(tenantId) || isAdmin(tenantId);
+    }
+
+    // User profiles collection
+    match /users/{userId} {
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      allow update: if isSignedIn() && request.auth.uid == userId;
+      allow delete: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Tenants collection
+    match /tenants/{tenantId} {
+      allow read: if isMember(tenantId);
+      allow create: if isSignedIn(); // Allow any signed-in user to create
+      allow update: if isTeacherOrAdmin(tenantId);
+      allow delete: if isAdmin(tenantId);
+
+      // Members subcollection
+      match /members/{userId} {
+        allow read: if isMember(tenantId);
+        allow create: if isTeacherOrAdmin(tenantId) || (isSignedIn() && request.auth.uid == userId);
+        allow update: if isTeacherOrAdmin(tenantId);
+        allow delete: if isTeacherOrAdmin(tenantId);
+      }
+
+      // Pins subcollection
+      match /pins/{pinId} {
+        allow read: if isMember(tenantId);
+        allow create: if isMember(tenantId);
+        allow update: if isMember(tenantId);
+        allow delete: if isTeacherOrAdmin(tenantId);
+
+        // Pin history subcollection
+        match /history/{historyId} {
+          allow read: if isMember(tenantId);
+          allow create: if isTeacherOrAdmin(tenantId);
+          allow update: if false; // History is immutable
+          allow delete: if false; // History is immutable
+        }
+      }
+
+      // Layers subcollection
+      match /layers/{layerId} {
+        allow read: if isMember(tenantId);
+        allow create: if isTeacherOrAdmin(tenantId);
+        allow update: if isTeacherOrAdmin(tenantId);
+        allow delete: if isTeacherOrAdmin(tenantId);
+      }
+
+      // Invite codes subcollection
+      match /inviteCodes/{codeId} {
+        allow read: if isTeacherOrAdmin(tenantId);
+        allow create: if isTeacherOrAdmin(tenantId);
+        allow update: if isTeacherOrAdmin(tenantId);
+        allow delete: if isTeacherOrAdmin(tenantId);
+      }
+
+      // Learning materials subcollection
+      match /learningMaterials/{materialId} {
+        allow read: if isMember(tenantId);
+        allow create: if isTeacherOrAdmin(tenantId);
+        allow update: if isTeacherOrAdmin(tenantId);
+        allow delete: if isTeacherOrAdmin(tenantId);
+      }
+    }
+
+    // Deny all other reads/writes
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
