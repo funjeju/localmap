@@ -9,7 +9,8 @@ interface MapState {
   draftPinLocation: { lat: number; lng: number } | null;
   exportMode: boolean;
   exportImage: string | null;
-  
+  showHeritageLayer: boolean;
+
   toggleLayer: (id: string) => void;
   setStudentMode: (on: boolean) => void;
   setTodayLayers: (ids: string[]) => void;
@@ -18,6 +19,7 @@ interface MapState {
   setDraftPinLocation: (loc: { lat: number; lng: number } | null) => void;
   setExportMode: (on: boolean) => void;
   setExportImage: (dataUrl: string | null) => void;
+  setShowHeritageLayer: (show: boolean) => void;
 }
 
 export const useMapStore = create<MapState>((set) => ({
@@ -29,7 +31,8 @@ export const useMapStore = create<MapState>((set) => ({
   draftPinLocation: null,
   exportMode: false,
   exportImage: null,
-  
+  showHeritageLayer: false,
+
   toggleLayer: (id) => set((state) => {
     const newSet = new Set(state.visibleLayerIds);
     if (newSet.has(id)) {
@@ -39,7 +42,7 @@ export const useMapStore = create<MapState>((set) => ({
     }
     return { visibleLayerIds: newSet };
   }),
-  
+
   setStudentMode: (on) => set({ studentMode: on }),
   setTodayLayers: (ids) => set({ todayLayers: ids }),
   setHighlightedLayerId: (id) => set({ highlightedLayerId: id }),
@@ -47,4 +50,5 @@ export const useMapStore = create<MapState>((set) => ({
   setDraftPinLocation: (loc) => set({ draftPinLocation: loc, selectedPinId: null, exportMode: false }),
   setExportMode: (on) => set({ exportMode: on, selectedPinId: null, draftPinLocation: null }),
   setExportImage: (dataUrl) => set({ exportImage: dataUrl }),
+  setShowHeritageLayer: (show) => set({ showHeritageLayer: show }),
 }));

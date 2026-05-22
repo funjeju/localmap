@@ -8,6 +8,7 @@ import { Layer } from '@/lib/firebase/models';
 
 export default function LayerFilterPanel({ tenantId }: { tenantId: string }) {
   const [layers, setLayers] = useState<Layer[]>([]);
+  const [showHeritage, setShowHeritage] = useState(false);
   const toggleLayer = useMapStore((state) => state.toggleLayer);
   const visibleLayerIds = useMapStore((state) => state.visibleLayerIds);
 
@@ -37,18 +38,38 @@ export default function LayerFilterPanel({ tenantId }: { tenantId: string }) {
         {layers.length === 0 ? (
           <div className="text-sm text-muted-foreground">불러오는 중...</div>
         ) : (
-          layers.map((layer) => (
-            <label key={layer.id} className="flex items-center gap-2 cursor-pointer">
-              <input 
-                type="checkbox" 
-                className="rounded" 
-                checked={visibleLayerIds.has(layer.id)}
-                onChange={() => toggleLayer(layer.id)}
+          <>
+            {/* System Layers */}
+            {layers.map((layer) => (
+              <label key={layer.id} className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="rounded"
+                  checked={visibleLayerIds.has(layer.id)}
+                  onChange={() => toggleLayer(layer.id)}
+                />
+                <span style={{ color: layer.color }}>{layer.icon}</span>
+                <span className="text-sm">{layer.name.ko || layer.name.en}</span>
+              </label>
+            ))}
+
+            {/* Heritage Layer Separator */}
+            <div className="border-t pt-4 mt-4">
+              <p className="text-xs font-semibold text-muted-foreground mb-3">문화재청</p>
+            </div>
+
+            {/* Heritage Layer Toggle */}
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                className="rounded"
+                checked={showHeritage}
+                onChange={(e) => setShowHeritage(e.target.checked)}
               />
-              <span style={{ color: layer.color }}>{layer.icon}</span>
-              <span className="text-sm">{layer.name.ko || layer.name.en}</span>
+              <span style={{ color: '#8b5cf6' }}>🏯</span>
+              <span className="text-sm">지정 문화재</span>
             </label>
-          ))
+          </>
         )}
       </div>
       <div className="p-4 border-t">

@@ -24,6 +24,7 @@ export default function MapCanvas({ tenantId, tenantCenter, tenantRadius, locale
   const visibleLayerIds = useMapStore((state) => state.visibleLayerIds);
   const studentMode = useMapStore((state) => state.studentMode);
   const draftPinLocation = useMapStore((state) => state.draftPinLocation);
+  const showHeritageLayer = useMapStore((state) => state.showHeritageLayer);
   const setSelectedPinId = useMapStore((state) => state.setSelectedPinId);
   const setDraftPinLocation = useMapStore((state) => state.setDraftPinLocation);
   
@@ -163,10 +164,36 @@ export default function MapCanvas({ tenantId, tenantCenter, tenantRadius, locale
     }
   }, [visibleLayerIds, mapLoaded]);
 
+  // Effect to manage heritage layer visibility
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return;
+
+    if (showHeritageLayer) {
+      // Add heritage WMS layer if not exists
+      if (!map.current.getSource('heritage-wms')) {
+        // For now, we'll add a placeholder comment
+        // Full WMS integration requires GDAL conversion or custom tile server
+        // URL: https://gis-heritage.go.kr/checkKey.do?...
+        console.log('Heritage layer toggle enabled - WMS integration ready');
+
+        // TODO: Implement WMS layer with proper tile conversion
+        // This will require a backend service to convert WMS to tiles
+      }
+    } else {
+      // Remove heritage layer if exists
+      if (map.current.getLayer('heritage-wms')) {
+        map.current.removeLayer('heritage-wms');
+      }
+      if (map.current.getSource('heritage-wms')) {
+        map.current.removeSource('heritage-wms');
+      }
+    }
+  }, [showHeritageLayer, mapLoaded]);
+
   // Effect to manage draft pin marker
   useEffect(() => {
     if (!map.current || !mapLoaded) return;
-    
+
     if (draftPinLocation) {
       if (!draftMarkerRef.current) {
         draftMarkerRef.current = new maplibregl.Marker({ color: '#ff0000', draggable: true })
