@@ -104,8 +104,11 @@ export interface MediaRef {
 
 // SourceInfo: 출처 정보
 export interface SourceInfo {
-  type: 'public_api' | 'teacher' | 'student' | 'parent' | 'osm' | 'ai_generated';
+  type: 'seed' | 'public_api' | 'teacher' | 'student' | 'parent' | 'osm' | 'ai_generated';
+  adapter?: string;
   apiName?: string;
+  externalId?: string;
+  externalUrl?: string;
   fetchedAt?: Date;
 }
 
@@ -117,7 +120,7 @@ export interface Pin {
   name: LocalizedText;
   location: GeoPoint;
   description: LocalizedText;
-  descriptionSource: 'manual' | 'public_api' | 'ai_generated' | 'translated';
+  descriptionSource: 'manual' | 'seed_data' | 'public_api' | 'ai_generated' | 'translated';
   images: MediaRef[];
   audioNotes: MediaRef[];
   source: SourceInfo;

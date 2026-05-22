@@ -7,12 +7,17 @@ import { calculateGeoHash } from '@/lib/geo/hash';
 import { useMapStore } from '@/stores/mapStore';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
+import PdfExportModal from './PdfExportModal';
+import type { Tenant, Pin } from '@/lib/types';
 
 export default function PinActionBar({ tenantId }: { tenantId: string }) {
   const params = useParams();
   const locale = (params.locale as string) || 'ko';
   const [adding, setAdding] = useState(false);
   const [generatingAI, setGeneratingAI] = useState(false);
+  const [showPdfModal, setShowPdfModal] = useState(false);
+  const [tenant, setTenant] = useState<Tenant | null>(null);
+  const [pins, setPins] = useState<Pin[]>([]);
 
   const handleAddPin = async () => {
     setAdding(true);
@@ -42,6 +47,37 @@ export default function PinActionBar({ tenantId }: { tenantId: string }) {
   };
 
   const setExportMode = useMapStore((state) => state.setExportMode);
+
+  const handleExportNeighborhoodBook = async () => {
+    try {
+      // Get tenant info
+      const tenantRef = doc(db, 'tenants', tenantId);
+      const tenantSnap = await getDoc(tenantRef);
+      if (!tenantSnap.exists()) {
+        throw new Error('학교 정보를 불러올 수 없습니다.');
+      }
+
+      setTenant(tenantSnap.data() as Tenant);
+
+      // Get all pins
+      const allPins = await new Promise<Pin[]>((resolve) => {
+        let pinsList: any[] = [];
+        const unsubscribe = subscribeToPins(tenantId, (pins) => {
+          pinsList = pins;
+        });
+        setTimeout(() => {
+          unsubscribe();
+          resolve(pinsList as Pin[]);
+        }, 500);
+      });
+
+      setPins(allPins);
+      setShowPdfModal(true);
+    } catch (error: any) {
+      console.error('Export error:', error);
+      alert(error?.message || '내보내기에 실패했습니다.');
+    }
+  };
 
   const handleGenerateAI = async () => {
     setGeneratingAI(true);
@@ -107,27 +143,43 @@ export default function PinActionBar({ tenantId }: { tenantId: string }) {
   };
 
   return (
-    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-background/90 backdrop-blur-sm p-2 rounded-lg shadow-lg border z-10">
-      <button 
-        onClick={handleAddPin} 
-        disabled={adding}
-        className="px-4 py-2 font-medium bg-primary text-primary-foreground rounded-md shadow-sm"
-      >
-        {adding ? '추가 중...' : '📍 핀 추가 (Demo)'}
-      </button>
-      <button 
-        onClick={() => setExportMode(true)}
-        className="px-4 py-2 font-medium bg-secondary text-secondary-foreground rounded-md shadow-sm border border-border hover:bg-secondary/80"
-      >
-        🎨 약도 만들기
-      </button>
-      <button
-        onClick={handleGenerateAI}
-        disabled={generatingAI}
-        className="px-4 py-2 font-medium bg-secondary text-secondary-foreground rounded-md shadow-sm border border-border hover:bg-secondary/80 disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {generatingAI ? '생성 중...' : '🤖 AI 설명'}
-      </button>
-    </div>
+    <>
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-background/90 backdrop-blur-sm p-2 rounded-lg shadow-lg border z-10">
+        <button
+          onClick={handleAddPin}
+          disabled={adding}
+          className="px-4 py-2 font-medium bg-primary text-primary-foreground rounded-md shadow-sm"
+        >
+          {adding ? '추가 중...' : '📍 핀 추가 (Demo)'}
+        </button>
+        <button
+          onClick={() => setExportMode(true)}
+          className="px-4 py-2 font-medium bg-secondary text-secondary-foreground rounded-md shadow-sm border border-border hover:bg-secondary/80"
+        >
+          🎨 약도 만들기
+        </button>
+        <button
+          onClick={handleGenerateAI}
+          disabled={generatingAI}
+          className="px-4 py-2 font-medium bg-secondary text-secondary-foreground rounded-md shadow-sm border border-border hover:bg-secondary/80 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {generatingAI ? '생성 중...' : '🤖 AI 설명'}
+        </button>
+        <button
+          onClick={handleExportNeighborhoodBook}
+          className="px-4 py-2 font-medium bg-secondary text-secondary-foreground rounded-md shadow-sm border border-border hover:bg-secondary/80"
+        >
+          📕 우리 동네 책
+        </button>
+      </div>
+
+      <PdfExportModal
+        isOpen={showPdfModal}
+        onClose={() => setShowPdfModal(false)}
+        tenant={tenant}
+        pins={pins}
+        locale={locale}
+      />
+    </>
   );
 }

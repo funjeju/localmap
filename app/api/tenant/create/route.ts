@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase/admin';
 import { calculateGeoHash } from '@/lib/geo/hash';
 import { createErrorResponse, AppError } from '@/lib/errors';
+import { seedRegistry } from '@/lib/seed/registry';
 import { FieldValue } from 'firebase-admin/firestore';
 
 export async function POST(req: Request) {
@@ -109,55 +110,32 @@ export async function POST(req: Request) {
       });
     });
 
-    // 4. Generate Mock Auto-Seed Pins (Phase 2 Preview)
-    const mockSeedData = [
-      { key: 'public_facility', name: '우리동네 행정복지센터', desc: '주민 등록 등본을 발급하고 민원을 처리하는 곳입니다.' },
-      { key: 'public_facility', name: '안전 우체국', desc: '편지와 소포를 보내고 예금 업무를 하는 곳입니다.' },
-      { key: 'public_facility', name: '119 안전센터', desc: '화재나 응급 상황 발생 시 출동하는 곳입니다.' },
-      { key: 'landmark', name: '솔내음 근린공원', desc: '주민들이 산책하고 배드민턴을 칠 수 있는 넓은 공원입니다.' },
-      { key: 'landmark', name: '푸른마을 도서관', desc: '다양한 책을 읽고 빌릴 수 있는 지식의 창고입니다.' },
-      { key: 'commerce', name: '싱싱 마트', desc: '우리 동네 주민들이 신선한 식재료를 사는 큰 마트입니다.' },
-      { key: 'commerce', name: '전통 골목시장', desc: '오래된 정취를 느낄 수 있는 지역 상인들의 터전입니다.' },
-      { key: 'safety', name: '어린이보호구역 (스쿨존)', desc: '학교 앞 30km 이하로 서행해야 하는 안전 구역입니다.' },
-      { key: 'safety', name: '안전지킴이집', desc: '위험한 일이 있을 때 어린이가 대피할 수 있는 가게입니다.' },
-      { key: 'heritage', name: '보호수 (500년 된 느티나무)', desc: '마을을 지켜온 아주 오래된 큰 나무입니다.' },
-      { key: 'heritage', name: '옛 서당 터', desc: '과거에 조상들이 공부하던 옛터의 흔적입니다.' },
-      { key: 'nature', name: '도토리 뒷산 등산로', desc: '가을이면 도토리가 많이 떨어져 청설모를 볼 수 있는 산길입니다.' },
-      { key: 'nature', name: '맑은샘 하천 생태길', desc: '오리벌레와 작은 물고기들을 관찰할 수 있는 생태 하천입니다.' },
-    ];
+    // 4. Run Auto-Seed Pipeline
+    const seedResults = await seedRegistry.seedTenant('elementary_school', { lat, lng }, radius || 500);
 
-    mockSeedData.forEach((seed) => {
-      if (!layerMap[seed.key]) return;
-      
-      const pinRef = tenantRef.collection('pins').doc();
-      // Random offset approx +/- 300~500m
-      const offsetLat = (Math.random() - 0.5) * 0.008;
-      const offsetLng = (Math.random() - 0.5) * 0.008;
-      const pinLat = lat + offsetLat;
-      const pinLng = lng + offsetLng;
-      
-      batch.set(pinRef, {
-        id: pinRef.id,
-        layerId: layerMap[seed.key],
-        name: { ko: seed.name },
-        location: {
-          lat: pinLat,
-          lng: pinLng,
-          geohash: calculateGeoHash(pinLat, pinLng)
-        },
-        description: { ko: seed.desc },
-        descriptionSource: 'ai_generated', // Marking as AI / System generated
-        source: {
-          type: 'public_api', // Mocking public api seed
-          apiName: '행정안전부 공공데이터 시뮬레이션',
-          fetchedAt: FieldValue.serverTimestamp()
-        },
-        externalIds: {},
-        status: 'active',
-        version: 0,
-        createdBy: 'system',
-        createdAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp(),
+    seedResults.forEach((result) => {
+      result.pins.forEach((seedPin) => {
+        const pinRef = tenantRef.collection('pins').doc();
+        const layerId = layerMap[seedPin.layerId] || layerMap['public_facility'];
+
+        batch.set(pinRef, {
+          id: pinRef.id,
+          layerId: layerId,
+          name: seedPin.name,
+          location: seedPin.location,
+          description: seedPin.description || { ko: '공공데이터 자동 추가' },
+          descriptionSource: 'seed_data',
+          source: {
+            ...seedPin.source,
+            adapter: result.adapter,
+          },
+          externalIds: {},
+          status: 'active',
+          version: 0,
+          createdBy: 'system',
+          createdAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
       });
     });
 
