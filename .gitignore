@@ -46,6 +46,5 @@ next-env.d.ts
 !designsample*.png
 
 # 대용량 파일: GitHub에 올릴 수 없음
-south-korea.pmtiles
-seoul.pmtiles
+*.pmtiles
 pmtiles.exe
