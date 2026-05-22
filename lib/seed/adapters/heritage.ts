@@ -39,24 +39,56 @@ export const heritageAdapter: SeedAdapter = {
       // Fetch from all heritage categories in parallel
       const categoryRequests = HERITAGE_CATEGORIES.map(async (category) => {
         try {
-          const response = await fetch(
-            `https://gis-heritage.go.kr/openapi/xmlService/spca.do?ccbaKdcd=${category.code}`,
-            { method: 'GET', headers: { Accept: 'application/json' } }
-          );
+          const url = `https://gis-heritage.go.kr/openapi/xmlService/spca.do?ccbaKdcd=${category.code}`;
+          const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/json',
+              'User-Agent': 'Mozilla/5.0'
+            }
+          });
 
           if (!response.ok) {
             console.warn(`Heritage API error for ${category.name}:`, response.status);
             return [];
           }
 
-          const data = await response.json();
-          const items = data.spca || [];
+          let data;
+          const contentType = response.headers.get('content-type') || '';
+
+          if (contentType.includes('json')) {
+            data = await response.json();
+          } else if (contentType.includes('xml') || contentType.includes('text')) {
+            // If XML is returned, we'll try to parse JSON anyway as some endpoints support both
+            const text = await response.text();
+            try {
+              data = JSON.parse(text);
+            } catch {
+              console.warn(`Heritage API returned non-JSON for ${category.name}, skipping`);
+              return [];
+            }
+          } else {
+            const text = await response.text();
+            try {
+              data = JSON.parse(text);
+            } catch {
+              return [];
+            }
+          }
+
+          const items = data?.spca || data?.data || data?.response || [];
+          if (!Array.isArray(items)) {
+            return [];
+          }
 
           // Filter by distance and map to SeedPin
           return items
             .filter((item: any) => {
-              const itemLat = parseFloat(item.latitude || 0);
-              const itemLng = parseFloat(item.longitude || 0);
+              const itemLat = parseFloat(item.latitude || item.lat || 0);
+              const itemLng = parseFloat(item.longitude || item.lng || 0);
+
+              if (itemLat === 0 && itemLng === 0) return false;
+
               const dist = Math.sqrt(
                 Math.pow(itemLat - latitude, 2) + Math.pow(itemLng - longitude, 2)
               ) * 111000; // rough km to meters
@@ -65,19 +97,19 @@ export const heritageAdapter: SeedAdapter = {
             .map((item: any) => ({
               layerId: 'heritage',
               name: {
-                ko: item.cCBAName || item.ccbaName || item.name || 'Unknown',
+                ko: item.cCBAName || item.ccbaName || item.name || item.ccba || 'Unknown',
               },
               description: {
-                ko: `${category.name} / ${item.cCBA || item.ccba || item.address || ''}`,
+                ko: `${category.name} / ${item.address || item.cCBA || ''}`,
               },
               location: {
-                lat: parseFloat(item.latitude || latitude),
-                lng: parseFloat(item.longitude || longitude),
+                lat: parseFloat(item.latitude || item.lat || latitude),
+                lng: parseFloat(item.longitude || item.lng || longitude),
               },
               source: {
                 type: 'seed' as const,
                 adapter: 'heritage',
-                externalId: item.cCBA || item.ccba || item.name || '',
+                externalId: item.ccba || item.cCBA || `${category.code}-${item.name}`,
                 externalUrl: `https://www.heritage.go.kr`,
               },
             }));
