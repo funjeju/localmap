@@ -39,3 +39,13 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# 중요: 절대 무시하지 말 것!
+# 아래 파일들은 프로젝트 설계와 리소스이므로 반드시 git에 커밋해야 함
+!CORE.md
+!docs/
+!designsample*.png
+
+# 대용량 파일: git-lfs 사용 필요 (별도 관리)
+# south-korea.pmtiles
+# pmtiles.exe
